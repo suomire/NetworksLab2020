@@ -4,6 +4,7 @@ from threading import Thread
 IP = "127.0.0.1"
 PORT = 1234
 HEADER_LEN = 10
+SERVER_WORKING_SESSION = True
 
 server_socket = socket.socket(
     socket.AF_INET,  # family
@@ -19,7 +20,7 @@ print("Server is listening")
 clients = {}
 
 
-def broadcast(msg):
+def broadcast(msg, from_client=None):
     """
     Send message to all chat users
     msg in str!
@@ -28,7 +29,8 @@ def broadcast(msg):
     msg = msg_header + msg
 
     for client in clients.keys():
-        client.send(msg.encode('utf-8'))
+        if (from_client is None) or client != from_client:
+            client.send(msg.encode('utf-8'))
 
 
 def handle_client(client):
@@ -40,6 +42,8 @@ def handle_client(client):
     4. Working with receiving new messages from this client
 
     """
+    CLIENT_WORKING_SESSION = True
+    global SERVER_WORKING_SESSION
     name_header_len = int(client.recv(HEADER_LEN).decode('utf-8').strip())
     name = client.recv(name_header_len).decode('utf-8')
 
@@ -50,17 +54,16 @@ def handle_client(client):
     client.send(msg_welcome.encode('utf-8'))
 
     msg_broadcast = "\t %s has joined to the chat! \n" % name
-    broadcast(msg_broadcast)
+    broadcast(msg_broadcast, client)
 
-
-    while True:
+    while CLIENT_WORKING_SESSION and SERVER_WORKING_SESSION:
         msg_len = int(client.recv(HEADER_LEN).decode('utf-8').strip())
         msg = client.recv(msg_len).decode('utf-8')
 
         print(msg)
 
         if msg.split(' > ')[-1] != "<quit<":
-            broadcast(msg)
+            broadcast(msg, client)
         else:
             exit_msg = "You exit from chat."
             exit_msg_header = f"{len(exit_msg):<{HEADER_LEN}}"
@@ -70,7 +73,23 @@ def handle_client(client):
             del clients[client]
             msg_bye = "%s has left the chat." % name
             broadcast(msg_bye)
-            break
+            CLIENT_WORKING_SESSION = False
+
+
+def closing_listen():
+    global SERVER_WORKING_SESSION
+    while SERVER_WORKING_SESSION:
+        message = input('Enter any message to close server << ')
+        if message:
+            SERVER_WORKING_SESSION = False
+            exit_msg = "Server stoped"
+            exit_msg_header = f"{len(exit_msg):<{HEADER_LEN}}"
+            exit_msg = exit_msg_header + exit_msg
+            broadcast(exit_msg)
+            for c in clients.keys():
+                c.close()
+            server_socket.close()
+            print('Server is closed')
 
 
 def accept_incoming_connection():
@@ -79,18 +98,21 @@ def accept_incoming_connection():
     accept, send welcome message,
     add to client_dict, start a new thread
     """
-    while True:
-        client, client_address = server_socket.accept()
-        print("%s:%s has connected." % client_address)
+    global SERVER_WORKING_SESSION
+    closing_listen_thread = Thread(target=closing_listen)
+    closing_listen_thread.start()
+    while SERVER_WORKING_SESSION:
+        if SERVER_WORKING_SESSION:
+            client, client_address = server_socket.accept()
+            print("%s:%s has connected." % client_address)
+            msg = "Welcome to chat!\n"
+            msg = f"{len(msg):<{HEADER_LEN}}" + msg
+            client.send(msg.encode('utf-8'))
 
-        msg = "Welcome to chat!\n"
-        msg = f"{len(msg):<{HEADER_LEN}}" + msg
-        client.send(msg.encode('utf-8'))
+            clients[client] = client_address
 
-        clients[client] = client_address
-
-        client_thread = Thread(target=handle_client, args=(client,))
-        client_thread.start()
+            client_thread = Thread(target=handle_client, args=(client,))
+            client_thread.start()
 
 
 if __name__ == '__main__':
