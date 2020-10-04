@@ -1,13 +1,10 @@
 import socket
 import threading
 import sys
-import time
 import datetime
 import pytz
 from tzlocal import get_localzone
-
-# TODO add timestamp !!
-
+from time import sleep
 
 HEADER_LEN = 10
 my_username = input("Username: ")
@@ -77,7 +74,7 @@ def listen_server():
 def send_server():
     listen_thread = threading.Thread(target=listen_server)
     listen_thread.start()
-    time.sleep(1)
+    sleep(1)
     while WORK_SESSION:
         message = input(f'{my_username} << ')
         if message:
