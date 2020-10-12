@@ -20,60 +20,77 @@ print("Server is listening")
 clients = {}
 
 
-def broadcast(msg, from_client=None):
+def broadcast(msg):
     """
     Send message to all chat users
-    msg in str!
+    message is encoded
     """
-    msg_header = f"{len(msg):<{HEADER_LEN}}"
-    msg = msg_header + msg
-
+    msg = f'{len(msg):<{HEADER_LEN}}'.encode('utf-8') + msg
     for client in clients.keys():
-        if (from_client is None) or client != from_client:
-            client.send(msg.encode('utf-8'))
+        client.send(msg)
+
+
+def encode_message(message):
+    timeline = message[0].encode('utf-8')
+    username = message[1].encode('utf-8')
+    msg_content = message[2].encode('utf-8')
+    msg = b'\0'.join([timeline, username, msg_content])
+    return msg
+
+
+def message_processing(message):
+    msg = [m.decode('utf-8') for m in message.split(b'\0')]
+    return msg
+
+
+def client_exit_from_chat(client, name):
+    exit_msg = "You exit from chat."
+    exit_msg_header = f"{len(exit_msg):<{HEADER_LEN}}"
+    exit_msg = exit_msg_header + exit_msg
+    client.send(exit_msg.encode('utf-8'))
+    client.close()
+    del clients[client]
+    msg_bye = "%s has left the chat." % name
+    broadcast(msg_bye.encode('utf-8'))
+
+
+def send_welcome_message(client, name):
+    msg_welcome = "Hi, %s! To quit from chat type <quit< \n" % name
+    msg_welcome = "Server >" + msg_welcome
+    msg_welcome = f"{len(msg_welcome):<{HEADER_LEN}}" + msg_welcome
+    client.send(msg_welcome.encode('utf-8'))
 
 
 def handle_client(client):
     """
-    Handling working with accepted clientself.
+    Handling working with accepted client.
     1. Receiving client's name
     2. Sending info message
     3. Send broadcast message about new chat member
     4. Working with receiving new messages from this client
 
     """
-    CLIENT_WORKING_SESSION = True
+    client_working_session = True
     global SERVER_WORKING_SESSION
     name_header_len = int(client.recv(HEADER_LEN).decode('utf-8').strip())
     name = client.recv(name_header_len).decode('utf-8')
 
-    msg_welcome = "Hi, %s! To quit from chat type <quit< \n" % name
-    msg_welcome = "Server >" + msg_welcome
-    msg_welcome = f"{len(msg_welcome):<{HEADER_LEN}}" + msg_welcome
-
-    client.send(msg_welcome.encode('utf-8'))
+    send_welcome_message(client, name)
 
     msg_broadcast = "\t %s has joined to the chat! \n" % name
-    broadcast(msg_broadcast, client)
+    broadcast(msg_broadcast.encode('utf-8'))
 
-    while CLIENT_WORKING_SESSION and SERVER_WORKING_SESSION:
+    while client_working_session and SERVER_WORKING_SESSION:
         msg_len = int(client.recv(HEADER_LEN).decode('utf-8').strip())
-        msg = client.recv(msg_len).decode('utf-8')
+        msg = client.recv(msg_len)
+        msg = message_processing(msg)
 
-        print(msg)
-
-        if msg.split(' > ')[-1] != "<quit<":
-            broadcast(msg, client)
+        if msg[2] != "<quit<":
+            msg = encode_message(msg)
+            broadcast(msg)
         else:
-            exit_msg = "You exit from chat."
-            exit_msg_header = f"{len(exit_msg):<{HEADER_LEN}}"
-            exit_msg = exit_msg_header + exit_msg
-            client.send(exit_msg.encode('utf-8'))
-            client.close()
-            del clients[client]
-            msg_bye = "%s has left the chat." % name
-            broadcast(msg_bye)
-            CLIENT_WORKING_SESSION = False
+            client_exit_from_chat(client, name)
+            client_working_session = False
 
 
 def closing_listen():
@@ -82,10 +99,10 @@ def closing_listen():
         message = input('Enter any message to close server << ')
         if message:
             SERVER_WORKING_SESSION = False
-            exit_msg = "Server stoped"
+            exit_msg = "Server stopped"
             exit_msg_header = f"{len(exit_msg):<{HEADER_LEN}}"
             exit_msg = exit_msg_header + exit_msg
-            broadcast(exit_msg)
+            broadcast(exit_msg.encode('utf-8'))
             for c in clients.keys():
                 c.close()
             server_socket.close()
@@ -102,17 +119,16 @@ def accept_incoming_connection():
     closing_listen_thread = Thread(target=closing_listen)
     closing_listen_thread.start()
     while SERVER_WORKING_SESSION:
-        if SERVER_WORKING_SESSION:
-            client, client_address = server_socket.accept()
-            print("%s:%s has connected." % client_address)
-            msg = "Welcome to chat!\n"
-            msg = f"{len(msg):<{HEADER_LEN}}" + msg
-            client.send(msg.encode('utf-8'))
+        client, client_address = server_socket.accept()
+        print("%s has connected." % client_address)
+        msg = "Welcome to chat!\n"
+        msg = f"{len(msg):<{HEADER_LEN}}" + msg
+        client.send(msg.encode('utf-8'))
 
-            clients[client] = client_address
+        clients[client] = client_address
 
-            client_thread = Thread(target=handle_client, args=(client,))
-            client_thread.start()
+        client_thread = Thread(target=handle_client, args=(client,))
+        client_thread.start()
 
 
 if __name__ == '__main__':
