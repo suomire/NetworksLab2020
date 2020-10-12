@@ -120,13 +120,12 @@ def accept_incoming_connection():
     closing_listen_thread.start()
     while SERVER_WORKING_SESSION:
         client, client_address = server_socket.accept()
-        print("%s has connected." % client_address)
+        print("%s:%s has connected." % client_address)
         msg = "Welcome to chat!\n"
         msg = f"{len(msg):<{HEADER_LEN}}" + msg
         client.send(msg.encode('utf-8'))
 
         clients[client] = client_address
-
         client_thread = Thread(target=handle_client, args=(client,))
         client_thread.start()
 
