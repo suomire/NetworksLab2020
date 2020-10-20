@@ -1,19 +1,21 @@
 import socket
 from threading import Thread
+import sys
 
 IP = "127.0.0.1"
 PORT = 1234
 HEADER_LEN = 10
 SERVER_WORKING_SESSION = True
+_FINISH = False
 
 server_socket = socket.socket(
     socket.AF_INET,  # family
     socket.SOCK_STREAM  # type
 )
+# использовать повторно созданный выше сокет
 server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-
 server_socket.bind((IP, PORT))  # localhost, port
-server_socket.listen(5)
+server_socket.listen()
 
 print("Server is listening")
 
@@ -79,34 +81,43 @@ def handle_client(client):
 
     msg_broadcast = "\t %s has joined to the chat! \n" % name
     broadcast(msg_broadcast.encode('utf-8'))
-
     while client_working_session and SERVER_WORKING_SESSION:
-        msg_len = int(client.recv(HEADER_LEN).decode('utf-8').strip())
-        msg = client.recv(msg_len)
-        msg = message_processing(msg)
+        try:
+            msg_len = int(client.recv(HEADER_LEN).decode('utf-8').strip())
+            msg = client.recv(msg_len)
+            msg = message_processing(msg)
 
-        if msg[2] != "<quit<":
-            msg = encode_message(msg)
-            broadcast(msg)
-        else:
-            client_exit_from_chat(client, name)
+            if msg[2] != "<quit<":
+                msg = encode_message(msg)
+                broadcast(msg)
+            else:
+                client_exit_from_chat(client, name)
+                client_working_session = False
+
+        except ValueError:
+            print("Error occurred on the client's side")
             client_working_session = False
+            client_exit_from_chat(client, name)
+
+    print('Thread for ', name, ' stopped')
 
 
-def closing_listen():
-    global SERVER_WORKING_SESSION
-    while SERVER_WORKING_SESSION:
-        message = input('Enter any message to close server << ')
-        if message:
-            SERVER_WORKING_SESSION = False
-            exit_msg = "Server stopped"
-            exit_msg_header = f"{len(exit_msg):<{HEADER_LEN}}"
-            exit_msg = exit_msg_header + exit_msg
-            broadcast(exit_msg.encode('utf-8'))
-            for c in clients.keys():
-                c.close()
-            server_socket.close()
-            print('Server is closed')
+def close_all_threads():
+    for c in client_threads:
+        c.join()
+    print('All client threads are closed')
+
+
+def close_server_socket():
+    global clients
+    exit_msg = "Server stopped"
+    exit_msg_header = f"{len(exit_msg):<{HEADER_LEN}}"
+    exit_msg = exit_msg_header + exit_msg
+    broadcast(exit_msg.encode('utf-8'))
+    for c in clients.keys():
+        c.close()
+    clients = {}
+    server_socket.close()
 
 
 def accept_incoming_connection():
@@ -115,19 +126,29 @@ def accept_incoming_connection():
     accept, send welcome message,
     add to client_dict, start a new thread
     """
-    global SERVER_WORKING_SESSION
-    closing_listen_thread = Thread(target=closing_listen)
-    closing_listen_thread.start()
-    while SERVER_WORKING_SESSION:
-        client, client_address = server_socket.accept()
-        print("%s:%s has connected." % client_address)
-        msg = "Welcome to chat!\n"
-        msg = f"{len(msg):<{HEADER_LEN}}" + msg
-        client.send(msg.encode('utf-8'))
+    global SERVER_WORKING_SESSION, client_threads
+    try:
+        while SERVER_WORKING_SESSION:
+            # blocking operation....
+            client, client_address = server_socket.accept()
+            print("%s:%s has connected." % client_address)
+            msg = "Welcome to chat!\n"
+            msg = f"{len(msg):<{HEADER_LEN}}" + msg
+            client.send(msg.encode('utf-8'))
 
-        clients[client] = client_address
-        client_thread = Thread(target=handle_client, args=(client,))
-        client_thread.start()
+            clients[client] = client_address
+            client_thread = Thread(target=handle_client, args=(client,))
+            client_thread.daemon = True
+            client_thread.start()
+
+    except KeyboardInterrupt:
+        # in case of closing server with active connections
+        SERVER_WORKING_SESSION = False
+        if len(clients) != 0:
+            close_server_socket()
+        # in case of correct closing server
+        print('\nYou stopped the server')
+        sys.exit(0)
 
 
 if __name__ == '__main__':
