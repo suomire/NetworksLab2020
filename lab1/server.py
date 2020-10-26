@@ -86,9 +86,10 @@ def handle_client(client):
         try:
             msg_len = int(client.recv(HEADER_LEN).decode('utf-8').strip())
             msg = client.recv(msg_len)
-            if len(msg) == msg_len:
-                msg = message_processing(msg)
-                
+            while len(msg) != msg_len:
+                msg += client.recv(msg_len)
+            msg = message_processing(msg)
+
             if msg[2] != "<quit<":
                 msg = encode_message(msg)
                 broadcast(msg)

@@ -11,7 +11,7 @@ from custom_colors import Utils, colors
 # max message len = 2252 -- ?
 IP = "51.15.130.137"
 # IP = "127.0.0.1"
-PORT = 1234
+PORT = 7556
 HEADER_LEN = 10
 my_username = input("Username: ")
 WORK_SESSION = True
@@ -74,8 +74,9 @@ def listen_server():
 
             message_len = int(message_header.decode('utf-8').strip())
             message = client_socket.recv(message_len)
-            if len(message) == message_len:
-                message_processing(message)
+            while len(message) != message_len:
+                message += client_socket.recv(message_len)
+            message_processing(message)
 
         except IOError as e:
             print('Reading error: {}'.format(str(e)))
