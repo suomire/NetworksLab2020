@@ -3,7 +3,8 @@ from threading import Thread
 import sys
 
 IP = "127.0.0.1"
-PORT = 1234
+# IP = "0.0.0.0"
+PORT = 7556
 HEADER_LEN = 10
 SERVER_WORKING_SESSION = True
 _FINISH = False
@@ -85,8 +86,9 @@ def handle_client(client):
         try:
             msg_len = int(client.recv(HEADER_LEN).decode('utf-8').strip())
             msg = client.recv(msg_len)
-            msg = message_processing(msg)
-
+            if len(msg) == msg_len:
+                msg = message_processing(msg)
+                
             if msg[2] != "<quit<":
                 msg = encode_message(msg)
                 broadcast(msg)
@@ -94,7 +96,8 @@ def handle_client(client):
                 client_exit_from_chat(client, name)
                 client_working_session = False
 
-        except ValueError:
+        except ValueError as e:
+            print(e)
             print("Error occurred on the client's side")
             client_working_session = False
             client_exit_from_chat(client, name)
@@ -111,8 +114,6 @@ def close_all_threads():
 def close_server_socket():
     global clients
     exit_msg = "Server stopped"
-    exit_msg_header = f"{len(exit_msg):<{HEADER_LEN}}"
-    exit_msg = exit_msg_header + exit_msg
     broadcast(exit_msg.encode('utf-8'))
     for c in clients.keys():
         c.close()

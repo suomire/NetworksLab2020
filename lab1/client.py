@@ -8,7 +8,9 @@ from time import sleep
 import random
 from custom_colors import Utils, colors
 
-IP = "127.0.0.1"
+# max message len = 2252 -- ?
+IP = "51.15.130.137"
+# IP = "127.0.0.1"
 PORT = 1234
 HEADER_LEN = 10
 my_username = input("Username: ")
@@ -50,7 +52,7 @@ def print_message(message):
 def message_processing(recv_message):
     msg = [m.decode('utf-8') for m in recv_message.split(b'\0')]
     if len(msg) == 1:
-        print(colors['YELLOW'] + Utils.BOLD + msg[0] + colors['BLUE'] + Utils.END)
+        print(colors['RED'] + Utils.BOLD + msg[0] + colors['BLUE'] + Utils.END)
     else:
         msg[0] = transform_time_to_local_timezone(msg[0])
         print_message(msg)
@@ -60,6 +62,9 @@ def listen_server():
     global WORK_SESSION
     while WORK_SESSION:
         try:
+            # если интернет, то не все пакеты приходят сразу и надо удостовериться, что пришли все все
+            # жесть............
+
             message_header = client_socket.recv(HEADER_LEN)
             if not len(message_header):
                 print("Connection closed by the server")
@@ -69,7 +74,8 @@ def listen_server():
 
             message_len = int(message_header.decode('utf-8').strip())
             message = client_socket.recv(message_len)
-            message_processing(message)
+            if len(message) == message_len:
+                message_processing(message)
 
         except IOError as e:
             print('Reading error: {}'.format(str(e)))
@@ -85,17 +91,22 @@ def encode_message(message):
     return b'\0'.join([timeline, usr, msg])
 
 
+
 def send_server():
     listen_thread = threading.Thread(target=listen_server)
+    listen_thread.daemon = True
     listen_thread.start()
     sleep(1)
     while WORK_SESSION:
-        message = input()
-        if message and WORK_SESSION:
-            msg = encode_message(message)
-            msg = f'{len(msg):<{HEADER_LEN}}'.encode('utf-8') + msg
-            client_socket.send(msg)
-
+        try:
+            message = input()
+            if message and WORK_SESSION:
+                msg = encode_message(message)
+                msg = f'{len(msg):<{HEADER_LEN}}'.encode('utf-8') + msg
+                client_socket.send(msg)
+        except KeyboardInterrupt:
+            print('\nYou closed clinet script')
+            sys.exit(0)
 
 if __name__ == '__main__':
     send_server()
