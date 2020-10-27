@@ -12,12 +12,16 @@ client_names = {}
 selector = selectors.DefaultSelector()  # epoll in linux
 
 
+# TODO: сделать сокеты неблокирующими -> изменить структуру программы
+# BlockingIOError: [Errno 11] Resource temporarily unavailable
+
 def set_server():
     global server_socket
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server_socket.bind((IP, PORT))
     server_socket.listen()
+    server_socket.setblocking(False)
 
     selector.register(fileobj=server_socket, events=selectors.EVENT_READ, data=accept_incoming_connection)
 
@@ -101,7 +105,7 @@ def handle_client(client_socket):
             msg = client_socket.recv(msg_len)
 
             while len(msg) != msg_len:
-                msg += client.recv(msg_len)
+                msg += client_socket.recv(msg_len)
             msg = message_processing(msg)
 
             if msg[2] != "<quit<":
@@ -117,6 +121,7 @@ def handle_client(client_socket):
 def accept_incoming_connection(server_socket_arg):
     print('callback accept_incoming_connection')
     client_socket, client_address = server_socket_arg.accept()
+    client_socket.setblocking(False)
     selector.register(fileobj=client_socket, events=selectors.EVENT_READ, data=handle_client)
 
     send_messages(0, client_socket)
