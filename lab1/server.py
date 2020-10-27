@@ -106,12 +106,6 @@ def handle_client(client):
     print('Thread for ', name, ' stopped')
 
 
-def close_all_threads():
-    for c in client_threads:
-        c.join()
-    print('All client threads are closed')
-
-
 def close_server_socket():
     global clients
     exit_msg = "Server stopped"
@@ -128,7 +122,7 @@ def accept_incoming_connection():
     accept, send welcome message,
     add to client_dict, start a new thread
     """
-    global SERVER_WORKING_SESSION, client_threads
+    global SERVER_WORKING_SESSION
     try:
         while SERVER_WORKING_SESSION:
             # blocking operation....

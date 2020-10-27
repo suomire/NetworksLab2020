@@ -8,7 +8,6 @@ from time import sleep
 import random
 from custom_colors import Utils, colors
 
-# max message len = 2252 -- ?
 # IP = "51.15.130.137"
 IP = "127.0.0.1"
 PORT = 7556

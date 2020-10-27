@@ -8,7 +8,6 @@ from time import sleep
 import random
 from custom_colors import Utils, colors
 
-# max message len = 2252 -- ?
 IP = "51.15.130.137"
 # IP = "127.0.0.1"
 PORT = 7556
@@ -62,9 +61,6 @@ def listen_server():
     global WORK_SESSION
     while WORK_SESSION:
         try:
-            # если интернет, то не все пакеты приходят сразу и надо удостовериться, что пришли все все
-            # жесть............
-
             message_header = client_socket.recv(HEADER_LEN)
             if not len(message_header):
                 print("Connection closed by the server")
@@ -92,7 +88,6 @@ def encode_message(message):
     return b'\0'.join([timeline, usr, msg])
 
 
-
 def send_server():
     listen_thread = threading.Thread(target=listen_server)
     listen_thread.daemon = True
@@ -106,8 +101,9 @@ def send_server():
                 msg = f'{len(msg):<{HEADER_LEN}}'.encode('utf-8') + msg
                 client_socket.send(msg)
         except KeyboardInterrupt:
-            print('\nYou closed clinet script')
+            print('\nYou closed client script')
             sys.exit(0)
+
 
 if __name__ == '__main__':
     send_server()
