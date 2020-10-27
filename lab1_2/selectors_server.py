@@ -4,7 +4,7 @@ import sys
 from message_utils import encode_message, message_processing
 
 IP = "127.0.0.1"
-PORT = 1234
+PORT = 7556
 HEADER_LEN = 10
 SERVER_WORKING_SESSION = True
 server_socket = None
@@ -99,6 +99,9 @@ def handle_client(client_socket):
         else:
             msg_len = int(client_socket.recv(HEADER_LEN).decode('utf-8').strip())
             msg = client_socket.recv(msg_len)
+
+            while len(msg) != msg_len:
+                msg += client.recv(msg_len)
             msg = message_processing(msg)
 
             if msg[2] != "<quit<":
