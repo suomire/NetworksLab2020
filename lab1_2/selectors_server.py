@@ -4,6 +4,7 @@ import sys
 from message_utils import encode_message, message_processing
 
 IP = "127.0.0.1"
+# IP = "0.0.0.0"
 PORT = 7556
 HEADER_LEN = 10
 SERVER_WORKING_SESSION = True
@@ -105,7 +106,11 @@ def handle_client(client_socket):
             msg = client_socket.recv(msg_len)
 
             while len(msg) != msg_len:
-                msg += client_socket.recv(msg_len)
+                try:
+                    msg += client_socket.recv(msg_len)
+                except BlockingIOError:
+                    continue
+
             msg = message_processing(msg)
 
             if msg[2] != "<quit<":
