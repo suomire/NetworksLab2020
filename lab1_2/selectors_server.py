@@ -11,10 +11,10 @@ SERVER_WORKING_SESSION = True
 server_socket = None
 client_names = {}
 selector = selectors.DefaultSelector()  # epoll in linux
+buffers_cs = dict()  # store client socket, len msg, gotten data
 
 
-# TODO: сделать сокеты неблокирующими -> изменить структуру программы
-# BlockingIOError: [Errno 11] Resource temporarily unavailable
+# TODO: буфферизация полученного сообщения, ожидание повторного события на клиентском сокете,
 
 def set_server():
     global server_socket
@@ -80,6 +80,19 @@ def send_messages(msg_type, client_socket, name=None):
         client_socket.send(msg_welcome.encode('utf-8'))
 
 
+def buffering_message(client_socket):
+    global buffers_cs
+    new_msg_len = buffers_cs[client_socket]['msg_len'] - len(buffers_cs[client_socket]['msg'])
+    buffers_cs[client_socket]['msg'] += client_socket.recv(new_msg_len)
+
+    if buffers_cs[client_socket]['msg'] == buffers_cs[client_socket]['msg_len']:
+        msg = buffers_cs[client_socket]['msg']
+        del buffers_cs[client_socket]
+        return msg
+    else:
+        return False
+
+
 def handle_client(client_socket):
     """
     Handling working with accepted client.
@@ -102,22 +115,32 @@ def handle_client(client_socket):
             broadcast(msg_broadcast.encode('utf-8'))
 
         else:
-            msg_len = int(client_socket.recv(HEADER_LEN).decode('utf-8').strip())
-            msg = client_socket.recv(msg_len)
-
-            while len(msg) != msg_len:
-                try:
-                    msg += client_socket.recv(msg_len)
-                except BlockingIOError:
-                    continue
-
-            msg = message_processing(msg)
-
-            if msg[2] != "<quit<":
-                msg = encode_message(msg)
-                broadcast(msg)
+            # we get the message from client
+            if client_socket in buffers_cs.keys():
+                msg = buffering_message(client_socket)
             else:
-                client_exit_from_chat(client_socket, client_names[client_socket])
+                client_message = dict()
+                msg_len = int(client_socket.recv(HEADER_LEN).decode('utf-8').strip())
+                msg = client_socket.recv(msg_len)
+
+                client_message['msg_len'] = msg_len
+                client_message['msg'] = msg
+
+                while len(msg) != msg_len:
+                    try:
+                        msg += client_socket.recv(msg_len)
+                        client_message['msg'] = msg
+                    except BlockingIOError:
+                        msg = False
+
+            if msg:
+                msg = message_processing(msg)
+
+                if msg[2] != "<quit<":
+                    msg = encode_message(msg)
+                    broadcast(msg)
+                else:
+                    client_exit_from_chat(client_socket, client_names[client_socket])
     except ValueError:
         print("Error occurred on the client's side")
         client_exit_from_chat(client_socket, client_names[client_socket])

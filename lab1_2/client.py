@@ -61,9 +61,6 @@ def listen_server():
     global WORK_SESSION
     while WORK_SESSION:
         try:
-            # если интернет, то не все пакеты приходят сразу и надо удостовериться, что пришли все все
-            # жесть............
-
             message_header = client_socket.recv(HEADER_LEN)
             if not len(message_header):
                 print("Connection closed by the server")
