@@ -102,6 +102,7 @@ def handle_client(client_socket):
     4. Working with receiving new messages from this client
 
     """
+    global buffers_cs
     try:
         if client_socket not in client_names.keys():
             name_header_len = int(client_socket.recv(HEADER_LEN).decode('utf-8').strip())
@@ -128,19 +129,23 @@ def handle_client(client_socket):
 
                 while len(msg) != msg_len:
                     try:
+                        buffers_cs[client_socket] = client_message
                         msg += client_socket.recv(msg_len)
                         client_message['msg'] = msg
+
                     except BlockingIOError:
                         msg = False
+                        break
 
-            if msg:
-                msg = message_processing(msg)
+        if msg:
+            msg = message_processing(msg)
 
-                if msg[2] != "<quit<":
-                    msg = encode_message(msg)
-                    broadcast(msg)
-                else:
-                    client_exit_from_chat(client_socket, client_names[client_socket])
+            if msg[2] != "<quit<":
+                msg = encode_message(msg)
+                broadcast(msg)
+            else:
+                client_exit_from_chat(client_socket, client_names[client_socket])
+
     except ValueError:
         print("Error occurred on the client's side")
         client_exit_from_chat(client_socket, client_names[client_socket])
