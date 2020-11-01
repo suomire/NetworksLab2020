@@ -82,12 +82,14 @@ def send_messages(msg_type, client_socket, name=None):
 
 def buffering_message(client_socket):
     global buffers_cs
+    print('Message buffering')
     new_msg_len = buffers_cs[client_socket]['msg_len'] - len(buffers_cs[client_socket]['msg'])
     buffers_cs[client_socket]['msg'] += client_socket.recv(new_msg_len)
 
     if buffers_cs[client_socket]['msg'] == buffers_cs[client_socket]['msg_len']:
         msg = buffers_cs[client_socket]['msg']
         del buffers_cs[client_socket]
+        print('returning big message')
         return msg
     else:
         return False
@@ -103,6 +105,7 @@ def handle_client(client_socket):
 
     """
     global buffers_cs
+    msg = False
     try:
         if client_socket not in client_names.keys():
             name_header_len = int(client_socket.recv(HEADER_LEN).decode('utf-8').strip())
@@ -126,6 +129,7 @@ def handle_client(client_socket):
 
                 client_message['msg_len'] = msg_len
                 client_message['msg'] = msg
+                print(msg_len, ' ', len(msg))
 
                 while len(msg) != msg_len:
                     try:
@@ -134,10 +138,12 @@ def handle_client(client_socket):
                         client_message['msg'] = msg
 
                     except BlockingIOError:
+                        print('BlockingIOError occured')
                         msg = False
                         break
 
         if msg:
+            print('Message processing')
             msg = message_processing(msg)
 
             if msg[2] != "<quit<":
