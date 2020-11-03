@@ -80,15 +80,30 @@ def send_messages(msg_type, client_socket, name=None):
 
 def buffering_message(client_socket):
     global buffers_cs
-    new_msg_len = buffers_cs[client_socket]['msg_len'] - len(buffers_cs[client_socket]['msg'])
-    buffers_cs[client_socket]['msg'] += client_socket.recv(new_msg_len)
 
-    if len(buffers_cs[client_socket]['msg']) == buffers_cs[client_socket]['msg_len']:
-        msg = buffers_cs[client_socket]['msg']
-        del buffers_cs[client_socket]
-        return msg
+    if client_socket in buffers_cs.keys():
+        new_msg_len = buffers_cs[client_socket]['msg_len'] - len(buffers_cs[client_socket]['msg'])
+        buffers_cs[client_socket]['msg'] += client_socket.recv(new_msg_len)
+
+        if len(buffers_cs[client_socket]['msg']) == buffers_cs[client_socket]['msg_len']:
+            msg = buffers_cs[client_socket]['msg']
+            del buffers_cs[client_socket]
+            return msg
+        else:
+            return False
+
     else:
-        return False
+        msg_len = int(client_socket.recv(HEADER_LEN).decode('utf-8').strip())
+        msg = client_socket.recv(msg_len)
+
+        if msg_len == len(msg):
+            return msg
+        else:
+            client_message = dict()
+            client_message['msg_len'] = msg_len
+            client_message['msg'] = msg
+            buffers_cs[client_socket] = client_message
+            return False
 
 
 def handle_client(client_socket):
@@ -116,27 +131,7 @@ def handle_client(client_socket):
             broadcast(msg_broadcast.encode('utf-8'))
 
         else:
-            # we get the message from client
-            if client_socket in buffers_cs.keys():
-                msg = buffering_message(client_socket)
-            else:
-                client_message = dict()
-                msg_len = int(client_socket.recv(HEADER_LEN).decode('utf-8').strip())
-                msg = client_socket.recv(msg_len)
-
-                client_message['msg_len'] = msg_len
-                client_message['msg'] = msg
-
-                while len(msg) != msg_len:
-                    try:
-                        buffers_cs[client_socket] = client_message
-                        msg += client_socket.recv(msg_len)
-                        client_message['msg'] = msg
-
-                    except BlockingIOError:
-                        print('BlockingIOError occurred')
-                        msg = False
-                        break
+            msg = buffering_message(client_socket)
 
         if msg:
             msg = message_processing(msg)
