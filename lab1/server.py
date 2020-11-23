@@ -87,7 +87,7 @@ def handle_client(client):
             msg_len = int(client.recv(HEADER_LEN).decode('utf-8').strip())
             msg = client.recv(msg_len)
             while len(msg) != msg_len:
-                msg += client.recv(msg_len)
+                msg += client.recv(msg_len - len(msg))
             msg = message_processing(msg)
 
             if msg[2] != "<quit<":
