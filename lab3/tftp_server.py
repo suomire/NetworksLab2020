@@ -1,70 +1,61 @@
 import socket
-import logging
 from threading import Thread
 import sys
-import TFTP_utils as Utils
-from TFTP_utils import Server
+import tftp_utils as tftputils
+import server_utils as utils
+from queue import Queue
 
 ip = "127.0.0.1"
 port = 5005
 
-BUFFER_SIZE = 65536
+ack_queue = Queue()
+data_queue = Queue()
 
 tftp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 tftp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-tftp_socket.bind((ip, port))  # localhost, port
+tftp_socket.bind((ip, port))
 
-logging.info('TFTP Server started, listening on', (ip, port))
-
+# подключенные пользователи, их обработка уже начата
 users = dict()
 
 
-def handle_request(msg, address):
-    print('Thread started')
-    print(msg, sep='\n')
-    request = Utils.process_data(msg)
-    if address not in users.keys():
-        users[address] = Utils.UserRequest(request['OPCODE'], request['MODE'], request['FILENAME'])
-
-    if request['OPCODE'] == Utils.TFTPOpcodes['RRQ']:
-        # SEND DATA (packets)
-        send_file = open(request['FILENAME'], 'rb')
-        send_data = send_file.read(Utils.BLOCK_SIZE)
-        while send_file:
-            Server.sendto(tftp_socket, address, Utils.DATA.send(send_data))
-            # TODO: wait timeout for ACK ??
-            # create timeout mechanism and with trigger variable
-            while users[address].ack_for_current_block is not True:
-                # wait
-                pass
-
-    elif request['OPCODE'] == Utils.TFTPOpcodes['WRQ']:
-        # SEND ACK AND THEN RECEIVE DATA
-        Server.sendto(tftp_socket, address, Utils.ACK.send(request))
-        pass
-    elif request['OPCODE'] == Utils.TFTPOpcodes['DATA']:
-        # SEND ACK
-        pass
-    elif request['OPCODE'] == Utils.TFTPOpcodes['ACK']:
-        # ALLOWS TO CONTINUE SENDING DATA
-        pass
-    elif request['OPCODE'] == Utils.TFTPOpcodes['ERROR']:
-        # SOME ERROR OCCURRED ??
-        pass
+# поток на отправку
+def handle_request(request, address):
+    print('Sending thread started')
+    print(request, sep='\n')
+    users[address[0]] = request
+    if request['OPCODE'] == tftputils.TFTPOpcodes['RRQ']:
+        res = utils.sending_file_from_server(tftp_socket, address, request, ack_queue)
+        msg = 'File sent successfully'
+    elif request['OPCODE'] == tftputils.TFTPOpcodes['WRQ']:
+        res = utils.receiving_file_from_client(tftp_socket, addr, 'server', data_queue, request)
+        msg = 'File received successfully'
     else:
-        # ILLEGAL OPCODE
-        pass
+        # ILLEGAL OPCODE ERROR
+        tftputils.Socket.sendto(tftp_socket, addr, tftputils.ERROR.send(4))
+        res = True
+        msg = 'ILLEGAL OPCODE ERROR OCCURRED'
+    if res:
+        del users[address[0]]
+        print(msg)
 
 
+# поток на прием сообщений, постоянное прослушивание
 while True:
     try:
-        # receive data, write own method to process data to structure
-        data, addr = Server.recv(tftp_socket)
-        print(data, addr)
-        Thread(target=handle_request, args=(data, addr)).start()
+        data, addr = tftputils.Socket.recv(tftp_socket)
+        handled_msg = tftputils.process_data(data)
+        # check if this connection is already in handling
+        if addr[0] in users.keys():
+            if handled_msg['OPCODE'] == tftputils.TFTPOpcodes['ACK']:
+                ack_queue.put((addr, handled_msg['BLOCK_NUM']))
+                print('ACK package received, added to queue')
+            elif handled_msg['OPCODE'] == tftputils.TFTPOpcodes['DATA']:
+                data_queue.put((addr, handled_msg['BLOCK_NUM'], handled_msg['DATA']))
+                print('Data package received, added to queue')
+        else:
+            Thread(target=handle_request, args=(handled_msg, addr), daemon=True).start()
     except KeyboardInterrupt:
+        tftp_socket.close()
         print('Server is stopped')
         sys.exit(0)
-
-# TODO: очистка словоря с пользователями (например, после выполнения потока обработки. метод remove вызывается если
-#  происходит действие, которое точно обозначает корректное завершение передачи )
