@@ -3,7 +3,6 @@ from threading import Thread
 import sys
 
 IP = "127.0.0.1"
-# IP = "0.0.0.0"
 PORT = 7556
 HEADER_LEN = 10
 SERVER_WORKING_SESSION = True

@@ -5,6 +5,7 @@ def encode_message(message):
     msg = b'\0'.join([timeline, username, msg_content])
     return msg
 
+
 def message_processing(message):
     msg = [m.decode('utf-8') for m in message.split(b'\0')]
     return msg

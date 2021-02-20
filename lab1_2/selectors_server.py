@@ -38,7 +38,7 @@ def broadcast(msg):
 
 
 def close_server_socket():
-    global client_names
+    global client_names, server_socket
     exit_msg = "Server stopped"
     exit_msg_header = f"{len(exit_msg):<{HEADER_LEN}}"
     exit_msg = exit_msg_header + exit_msg
