@@ -113,5 +113,5 @@ def process_data(msg):
         request['BLOCK_NUM'] = struct.unpack('!h', msg[2:])[0]
     else:
         request['ERRCODE'] = struct.unpack('!h', msg[2:4])[0]
-        request['ERRMSG'] = msg[4:-1].decode('utf-8')
+        request['ERRMSG'] = msg[4:-1].decode('utf-8') # last symbol is not included ('\0')
     return request
