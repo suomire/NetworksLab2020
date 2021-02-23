@@ -1,4 +1,8 @@
 import struct
+import logging.config
+
+logging.config.fileConfig('server_logging.ini', disable_existing_loggers=False)
+logger = logging.getLogger(__name__)
 
 BLOCK_SIZE = 512
 BUFFER_SIZE = 65536
@@ -62,7 +66,7 @@ class ACK:
         ack = ACK(block_num)
         # send_message = struct.pack('!h', ack.opcode) + struct.pack('!h', ack.block_num)
         send_message = struct.pack(b'!2H', ack.opcode, ack.block_num)
-        print('Sending ACK ', block_num)
+        logger.info('Sending ACK ' + block_num)
         return send_message
 
 
@@ -79,8 +83,7 @@ class ERROR:
         errmsg = error.err_msg + msg
         send_message = struct.pack('!h', error.opcode) + struct.pack('!h', error.err_code) + errmsg.encode(
             'utf-8')
-        print('Sending ERROR ', err_code, ': ', error.err_msg)
-        print(send_message)
+        logger.error('Sending ERROR ' + err_code + ': ' + error.err_msg)
         return send_message
 
 
@@ -89,15 +92,13 @@ class Socket:
     @staticmethod
     def recv(sock):
         data, addr = sock.recvfrom(BUFFER_SIZE)
-        print(f'Received packet from {addr}')
-        print(data)
+        logger.info(f'Received packet from {addr}')
         return data, addr
 
     @staticmethod
     def sendto(sock, addr, msg):
         sock.sendto(msg, addr)
-        print('send ', msg)
-        print(f'Sending packet to {addr}')
+        logger.info(f'Sending packet to {addr}')
 
 
 def process_data(msg):
@@ -113,5 +114,5 @@ def process_data(msg):
         request['BLOCK_NUM'] = struct.unpack('!h', msg[2:])[0]
     else:
         request['ERRCODE'] = struct.unpack('!h', msg[2:4])[0]
-        request['ERRMSG'] = msg[4:-1].decode('utf-8') # last symbol is not included ('\0')
+        request['ERRMSG'] = msg[4:-1].decode('utf-8')  # last symbol is not included ('\0')
     return request

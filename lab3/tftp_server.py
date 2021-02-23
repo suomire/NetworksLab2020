@@ -55,8 +55,10 @@ while True:
             if handled_msg['OPCODE'] == tftputils.TFTPOpcodes['ACK']:
                 ack_queue.put((addr, handled_msg['BLOCK_NUM']))
                 print('ACK package received, added to queue')
+                logger.info('ACK package received, added to queue')
             elif handled_msg['OPCODE'] == tftputils.TFTPOpcodes['DATA']:
                 data_queue.put((addr, handled_msg['BLOCK_NUM'], handled_msg['DATA']))
+                logger.info('Data package received, added to queue')
                 print('Data package received, added to queue')
         else:
             Thread(target=handle_request, args=(handled_msg, addr), daemon=True).start()
