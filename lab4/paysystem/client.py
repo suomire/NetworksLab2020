@@ -41,7 +41,7 @@ def process_recv_message(sock, recv_message, request):
     global USERNAME, PASSWORD
     if recv_message['opcode'] == OPCODE['Answer']:
         if request['opcode'] == OPCODE['Register']:  # User registration
-            print('Congratulations! Your registration was successfull')
+            print('Congratulations! Your registration was successful')
             print('Your account information:')
             print('Username: %s \n Wallet number: %s' % (request['name'], recv_message['answer']))
         elif request['opcode'] == OPCODE['Sign in']:  # Log in
@@ -65,13 +65,13 @@ def process_recv_message(sock, recv_message, request):
             if recv_message['answer'] is False:
                 print('You do not have enough funds in your account')
             else:
-                print('Congratulations! You have got a in successfull transaction')
+                print('Congratulations! You have got a successful transaction')
                 request = {'opcode': OPCODE['Sum']}
-                process_recv_message(sock, receive_req_n_get_answer(sock, request), request)
+                process_recv_message(sock, send_req_n_get_answer(sock, request), request)
     return
 
 
-def receive_req_n_get_answer(sock, request):
+def send_req_n_get_answer(sock, request):
     json_request = json.dumps(request).encode(CODE)
     sock.send(json_request)
     recv_message = sock.recv(BLOCK_LENGTH)
@@ -108,19 +108,19 @@ def working_session(sock):
                 USERNAME, PASSWORD = login_usr_pass()
                 request = {'opcode': command, 'name': USERNAME, 'password': PASSWORD}
                 print(request)
-                recv_message = receive_req_n_get_answer(sock, request)
+                recv_message = send_req_n_get_answer(sock, request)
                 process_recv_message(sock, recv_message, request)
             elif (command == OPCODE['Other wallets']) or (command == OPCODE['Sum']):  # Request all user's wallets
                 request = {'opcode': command}
-                recv_message = receive_req_n_get_answer(sock, request)
+                recv_message = send_req_n_get_answer(sock, request)
                 process_recv_message(sock, recv_message, request)
             elif command == OPCODE['Transaction']:  # Make a transaction to user
                 print('Enter the wallet number you want to send money to')
                 wallet_number = input()
                 print('How much do you want to transfer?')
-                sum = float(input())
-                request = {'opcode': command, "wallet_num": wallet_number, "sum": sum}
-                recv_message = receive_req_n_get_answer(sock, request)
+                summary = float(input())
+                request = {'opcode': command, "wallet_num": wallet_number, "sum": summary}
+                recv_message = send_req_n_get_answer(sock, request)
                 process_recv_message(sock, recv_message, request)
             elif command == -1:
                 for elem in COMMANDS:
@@ -140,7 +140,6 @@ def working_session(sock):
 
 
 def main():
-    i = 0
     print("Pay system client started.")
     try:
         address = (IP, PORT)
