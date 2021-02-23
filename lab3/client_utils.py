@@ -1,8 +1,12 @@
 import tftp_utils as utils
 import argparse
 import socket
+import logging.config
 
 ERR_MAX = 5
+
+logging.config.fileConfig('client_logging.ini', disable_existing_loggers=False)
+logger = logging.getLogger(__name__)
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -50,13 +54,15 @@ def sending_file_from_client(timeout, addr, msg, request):
                 utils.Socket.sendto(sock, addr, last_send)
                 continue
             else:
-                print("Server is not responding")
+                logger.error('Server is not responding')
+                # print("Server is not responding")
                 return
 
         recent_ack = utils.process_data(recent_ack)
 
         if recent_ack['OPCODE'] == utils.TFTPOpcodes['ERROR']:
             print(f"Error from server: {recent_ack['ERRMSG']}")
+            logger.error(f"Error from server: {recent_ack['ERRMSG']}")
             send_file.close()
             # sock.shutdown(socket.SHUT_RDWR)
             sock.close()
@@ -68,6 +74,7 @@ def sending_file_from_client(timeout, addr, msg, request):
             utils.Socket.sendto(sock, addr, last_message)
             if len(send_data) < utils.BLOCK_SIZE:
                 print('File was sent')
+                logger.info('File was sent')
                 send_file.close()
                 # sock.shutdown(socket.SHUT_RDWR)
                 sock.close()

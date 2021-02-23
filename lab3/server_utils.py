@@ -1,7 +1,11 @@
 import tftp_utils as utils
 import time
+import logging.config
 
 SERVER_TIMEOUT = 10
+
+logging.config.fileConfig('server_logging.ini', disable_existing_loggers=False)
+logger = logging.getLogger(__name__)
 
 
 # обрабатывает процесс чтения файла с сервера (отправка с сервера)
@@ -27,11 +31,13 @@ def sending_file_from_server(sock, addr, request, ack_queue, timeout=SERVER_TIME
                     send_timeout -= 1
             elif send_timeout == 0:
                 utils.Socket.sendto(sock, addr, utils.ERROR.send(0, 'Message: timeout reached'))
+                logger.info('Message: timeout reached')
         send_file.close()
         return True
 
     except FileNotFoundError:
         utils.Socket.sendto(sock, addr, utils.ERROR.send(1))
+        logger.error(FileNotFoundError)
         return False
 
 
@@ -63,7 +69,8 @@ def receiving_file_from_client(sock, addr, type_op, data_queue, request, timeout
             utils.Socket.sendto(sock, addr, utils.ACK.send(block_num))
             block_num += 1
             rec_timeout = 0
-            print('File was received fully')
+            # print('File was received fully')
+            logger.info('File was received fully')
         else:
             data_queue.put(recent_data)
             time.sleep(1)
@@ -71,6 +78,7 @@ def receiving_file_from_client(sock, addr, type_op, data_queue, request, timeout
     sock.sendto(utils.ACK.send(block_num), addr)
     file = open(type_op + '/' + request['FILENAME'], 'wb')
     file.write(file_data)
+    logger.info('File was saved')
     print('File was saved')
     file.close()
     return True

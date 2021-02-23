@@ -4,6 +4,10 @@ import sys
 import tftp_utils as tftputils
 import server_utils as utils
 from queue import Queue
+import logging.config
+
+logging.config.fileConfig('server_logging.ini', disable_existing_loggers=False)
+logger = logging.getLogger(__name__)
 
 ip = "127.0.0.1"
 port = 5005
@@ -38,6 +42,7 @@ def handle_request(request, address):
     if res:
         del users[address[0]]
         print(msg)
+        logger.info(msg)
 
 
 # поток на прием сообщений, постоянное прослушивание
@@ -57,5 +62,6 @@ while True:
             Thread(target=handle_request, args=(handled_msg, addr), daemon=True).start()
     except KeyboardInterrupt:
         tftp_socket.close()
+        logger.info('Server is stopped')
         print('Server is stopped')
         sys.exit(0)
